@@ -198,3 +198,12 @@ export interface DatabaseSchema {
   auditLogs: AuditLog[];
   settings: InstituteSettings;
 }
+
+export type UserRole = 'super-admin' | 'admin' | 'front-office-executive';
+
+export interface UserSession {
+  role: UserRole;
+  name: string;
+  email: string;
+  avatar: string;
+}

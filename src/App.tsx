@@ -19,15 +19,29 @@ import AttendanceModule from './components/AttendanceModule.js';
 import CertificatePlacement from './components/CertificatePlacement.js';
 import AiAssistant from './components/AiAssistant.js';
 import AdminSettings from './components/AdminSettings.js';
+import LoginPortal from './components/LoginPortal.js';
 
 // Import Types
 import { 
   Student, Course, Batch, Trainer, Payment, 
   AttendanceRecord, Certificate, Placement, 
-  InstituteSettings, AuditLog 
+  InstituteSettings, AuditLog, UserRole, UserSession 
 } from './types.js';
 
 export default function App() {
+  // Authentication & Session
+  const [session, setSession] = useState<UserSession | null>(() => {
+    const cached = localStorage.getItem('erp_session');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
   // Navigation
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -251,6 +265,18 @@ export default function App() {
     await refreshAllData();
   };
 
+  const handleLoginSuccess = (userSession: UserSession) => {
+    localStorage.setItem('erp_session', JSON.stringify(userSession));
+    setSession(userSession);
+    setActiveTab('dashboard');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('erp_session');
+    setSession(null);
+    setActiveTab('dashboard');
+  };
+
   // Sidebar Menu Items
   const menuItems = [
     { id: 'dashboard', label: 'Overview Dashboard', icon: TrendingUp },
@@ -263,6 +289,31 @@ export default function App() {
     { id: 'settings', label: 'Settings & Log Audits', icon: Settings }
   ];
 
+  // Filter based on active role permissions
+  const filteredMenuItems = menuItems.filter(item => {
+    if (!session) return false;
+    if (session.role === 'super-admin') return true;
+    if (session.role === 'admin') {
+      return item.id !== 'settings';
+    }
+    if (session.role === 'front-office-executive') {
+      return ['dashboard', 'students', 'payments', 'courses'].includes(item.id);
+    }
+    return true;
+  });
+
+  const isTabAuthorized = (tabId: string): boolean => {
+    if (!session) return false;
+    if (session.role === 'super-admin') return true;
+    if (session.role === 'admin') {
+      return tabId !== 'settings';
+    }
+    if (session.role === 'front-office-executive') {
+      return ['dashboard', 'students', 'payments', 'courses'].includes(tabId);
+    }
+    return true;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans gap-3">
@@ -270,6 +321,10 @@ export default function App() {
         <span className="text-sm font-semibold text-slate-500 tracking-wider uppercase animate-pulse">Initializing ERP Secure Node...</span>
       </div>
     );
+  }
+
+  if (!session) {
+    return <LoginPortal onLoginSuccess={handleLoginSuccess} instituteName={settings.name || "MR Technologies"} />;
   }
 
   return (
@@ -305,7 +360,7 @@ export default function App() {
 
           {/* Nav list */}
           <nav className="space-y-1.5 px-3">
-            {menuItems.map(item => {
+            {filteredMenuItems.map(item => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
@@ -331,18 +386,44 @@ export default function App() {
         </div>
 
         {/* User context profile footer */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 shrink-0">
-          <div className="flex items-center gap-3 truncate">
-            <div className="w-8 h-8 rounded-full bg-slate-700 text-slate-200 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-600 uppercase">
-              RP
-            </div>
-            {isSidebarOpen && (
-              <div className="truncate">
-                <h3 className="font-bold text-slate-100 text-xs truncate">Ram Prasad</h3>
-                <span className="text-[10px] text-slate-500 font-sans block truncate">{settings.email}</span>
+        <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 shrink-0 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 truncate">
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 border border-blue-500 uppercase">
+                {session?.avatar || "RP"}
               </div>
+              {isSidebarOpen && (
+                <div className="truncate">
+                  <h3 className="font-bold text-slate-100 text-xs truncate leading-snug">{session?.name}</h3>
+                  <span className="text-[9px] text-blue-400 font-bold block uppercase tracking-wider">
+                    {session?.role === 'super-admin' ? 'Super Admin' : session?.role === 'admin' ? 'Academic Admin' : 'Executive'}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {isSidebarOpen && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg cursor-pointer transition-colors"
+                title="Sign Out Session"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             )}
           </div>
+
+          {!isSidebarOpen && (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full py-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg cursor-pointer transition-colors flex justify-center"
+              title="Sign Out Session"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </aside>
 
@@ -363,8 +444,18 @@ export default function App() {
             <span className="font-bold text-slate-900 text-sm">{settings.name}</span>
           </div>
 
-          <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs uppercase">
-            RP
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-2xs border border-blue-500">
+              {session?.avatar || "RP"}
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </header>
 
@@ -397,6 +488,7 @@ export default function App() {
               onUpdateStudent={handleUpdateStudent}
               onDeleteStudent={handleDeleteStudent}
               onCollectPayment={handleCollectPayment}
+              userRole={session?.role}
             />
           )}
 
@@ -419,44 +511,92 @@ export default function App() {
           )}
 
           {activeTab === 'attendance' && (
-            <AttendanceModule 
-              students={students}
-              batches={batches}
-              courses={courses}
-              attendanceLogs={attendanceLogs}
-              onMarkAttendance={handleMarkAttendance}
-            />
+            isTabAuthorized('attendance') ? (
+              <AttendanceModule 
+                students={students}
+                batches={batches}
+                courses={courses}
+                attendanceLogs={attendanceLogs}
+                onMarkAttendance={handleMarkAttendance}
+              />
+            ) : (
+              <div className="bg-white p-12 rounded-xl border border-slate-200 shadow-sm text-center max-w-lg mx-auto my-12 space-y-4">
+                <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-100 shadow-xs">
+                  <ShieldAlert className="w-8 h-8" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-lg">Administrative Access Restricted</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Your currently active session role (<span className="font-semibold text-slate-700 capitalize">{(session?.role || "").replace(/-/g, ' ')}</span>) does not possess sufficient security clearance to access this module node. Please request authorization from an academic supervisor or system super administrator.
+                </p>
+              </div>
+            )
           )}
 
           {activeTab === 'credentials' && (
-            <CertificatePlacement 
-              students={students}
-              courses={courses}
-              certificates={certificates}
-              placements={placements}
-              onIssueCertificate={handleIssueCertificate}
-              onRegisterPlacement={handleRegisterPlacement}
-              onUpdateCertificate={handleUpdateStudent as any}
-            />
+            isTabAuthorized('credentials') ? (
+              <CertificatePlacement 
+                students={students}
+                courses={courses}
+                certificates={certificates}
+                placements={placements}
+                onIssueCertificate={handleIssueCertificate}
+                onRegisterPlacement={handleRegisterPlacement}
+                onUpdateCertificate={handleUpdateStudent as any}
+              />
+            ) : (
+              <div className="bg-white p-12 rounded-xl border border-slate-200 shadow-sm text-center max-w-lg mx-auto my-12 space-y-4">
+                <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-100 shadow-xs">
+                  <ShieldAlert className="w-8 h-8" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-lg">Placement & Credentials Locked</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Your currently active session role (<span className="font-semibold text-slate-700 capitalize">{(session?.role || "").replace(/-/g, ' ')}</span>) does not possess sufficient security clearance to access this module node. Please request authorization from an academic supervisor or system super administrator.
+                </p>
+              </div>
+            )
           )}
 
           {activeTab === 'ai-assist' && (
-            <AiAssistant 
-              students={students}
-              courses={courses}
-              batches={batches}
-              payments={payments}
-            />
+            isTabAuthorized('ai-assist') ? (
+              <AiAssistant 
+                students={students}
+                courses={courses}
+                batches={batches}
+                payments={payments}
+              />
+            ) : (
+              <div className="bg-white p-12 rounded-xl border border-slate-200 shadow-sm text-center max-w-lg mx-auto my-12 space-y-4">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto border border-indigo-100 shadow-xs">
+                  <ShieldAlert className="w-8 h-8 animate-pulse" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-lg">AI Assistant Restricted</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Your currently active session role (<span className="font-semibold text-slate-700 capitalize">{(session?.role || "").replace(/-/g, ' ')}</span>) does not possess sufficient security clearance to access this module node. Please request authorization from an academic supervisor or system super administrator.
+                </p>
+              </div>
+            )
           )}
 
           {activeTab === 'settings' && (
-            <AdminSettings 
-              settings={settings}
-              auditLogs={auditLogs}
-              onUpdateSettings={handleUpdateSettings}
-              onBackupDatabase={handleBackupDatabase}
-              onRestoreDatabase={handleRestoreDatabase}
-            />
+            isTabAuthorized('settings') ? (
+              <AdminSettings 
+                settings={settings}
+                auditLogs={auditLogs}
+                onUpdateSettings={handleUpdateSettings}
+                onBackupDatabase={handleBackupDatabase}
+                onRestoreDatabase={handleRestoreDatabase}
+              />
+            ) : (
+              <div className="bg-white p-12 rounded-xl border border-slate-200 shadow-sm text-center max-w-lg mx-auto my-12 space-y-4">
+                <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto border border-rose-100 shadow-xs">
+                  <ShieldAlert className="w-8 h-8" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-lg">Settings & Log Audits Restricted</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Your currently active session role (<span className="font-semibold text-slate-700 capitalize">{(session?.role || "").replace(/-/g, ' ')}</span>) does not possess sufficient security clearance to access this module node. Please request authorization from an academic supervisor or system super administrator.
+                </p>
+              </div>
+            )
           )}
 
         </main>

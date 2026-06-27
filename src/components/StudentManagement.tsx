@@ -22,6 +22,7 @@ interface StudentManagementProps {
   onUpdateStudent: (id: string, updates: Partial<Student>) => void;
   onDeleteStudent: (id: string) => void;
   onCollectPayment: (payment: { studentId: string; amount: number; method: any; date: string; remarks: string }) => void;
+  userRole?: string;
 }
 
 export default function StudentManagement({ 
@@ -34,7 +35,8 @@ export default function StudentManagement({
   onAddStudent,
   onUpdateStudent,
   onDeleteStudent,
-  onCollectPayment
+  onCollectPayment,
+  userRole = 'super-admin'
 }: StudentManagementProps) {
   // Navigation states
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -416,25 +418,48 @@ export default function StudentManagement({
       ) : (
         /* Detailed Student Profile */
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <button 
               onClick={() => setSelectedStudentId(null)}
-              className="text-xs text-indigo-600 font-medium hover:text-indigo-800 cursor-pointer flex items-center gap-1 bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-2xs"
+              className="text-xs text-indigo-600 font-medium hover:text-indigo-800 cursor-pointer flex items-center gap-1 bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-2xs self-start"
             >
               &larr; Back to Admissions
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xs text-slate-400">STATUS:</span>
               <select
                 value={selectedStudent?.status}
                 onChange={e => onUpdateStudent(selectedStudent!.id, { status: e.target.value as any })}
-                className="text-xs font-semibold text-slate-700 px-3 py-1.5 border border-slate-100 bg-white rounded-xl focus:outline-hidden"
+                className="text-xs font-semibold text-slate-700 px-3 py-1.5 border border-slate-100 bg-white rounded-xl focus:outline-hidden animate-none"
               >
                 <option value="Active">Active</option>
                 <option value="Completed">Completed</option>
                 <option value="Discontinued">Discontinued</option>
                 <option value="Yet to Start">Yet to Start</option>
               </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (userRole === 'front-office-executive') {
+                    alert("🔒 Access Denied: Front Office Executives are strictly forbidden from deleting student profiles. This action is restricted to Academic Admins and Super Admins.");
+                  } else {
+                    if (confirm(`Are you sure you want to drop student ${selectedStudent?.name}? This action cannot be undone.`)) {
+                      onDeleteStudent(selectedStudent!.id);
+                      setSelectedStudentId(null);
+                    }
+                  }
+                }}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer transition-all ${
+                  userRole === 'front-office-executive'
+                    ? 'bg-slate-100 text-slate-400 border border-slate-200 hover:bg-slate-200'
+                    : 'bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-100'
+                }`}
+                title={userRole === 'front-office-executive' ? "Action locked for Front Office role" : "Drop student profile"}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Drop Student</span>
+              </button>
             </div>
           </div>
 
