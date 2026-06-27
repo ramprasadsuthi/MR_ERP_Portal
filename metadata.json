@@ -1,0 +1,8 @@
+{
+  "name": "MR Technologies ERP",
+  "description": "AI-powered Training Institute Management System for MR Technologies, managing students, courses, batches, trainers, payments, attendance, placements, and certificates with rich business intelligence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
