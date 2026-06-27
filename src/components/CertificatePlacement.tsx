@@ -264,11 +264,21 @@ export default function CertificatePlacement({
   // Stats
   const placedCount = placements.filter(p => p.status === 'Placed').length;
   const activeOffersCount = placements.filter(p => p.status === 'Offered').length;
-  const avgPackage = placements.length > 0 
-    ? (placements.reduce((sum, p) => sum + p.packageLpa, 0) / placements.length).toFixed(1)
+  
+  const validPackages = placements
+    .map(p => {
+      const val = p.packageLpa !== undefined ? p.packageLpa : p.package;
+      if (val === undefined || val === null) return 0;
+      const num = Number(val);
+      return isNaN(num) ? 0 : num;
+    })
+    .filter(val => val > 0);
+
+  const avgPackage = validPackages.length > 0 
+    ? (validPackages.reduce((sum, val) => sum + val, 0) / validPackages.length).toFixed(1)
     : "5.5";
-  const maxPackage = placements.length > 0 
-    ? Math.max(...placements.map(p => p.packageLpa)).toFixed(1)
+  const maxPackage = validPackages.length > 0 
+    ? Math.max(...validPackages).toFixed(1)
     : "12.0";
 
   return (
@@ -547,13 +557,17 @@ export default function CertificatePlacement({
                   <tbody className="divide-y divide-slate-100">
                     {placements.map(place => {
                       const stud = students.find(s => s.id === place.studentId);
+                      const displayCompany = place.company || place.companyName || "N/A";
+                      const displayDesignation = place.designation || place.jobRole || "N/A";
+                      const displayPackage = place.packageLpa !== undefined ? place.packageLpa : place.package;
+                      const displayDate = place.interviewDate || place.joiningDate || "N/A";
                       return (
                         <tr key={place.id} className="hover:bg-slate-50/40">
-                          <td className="px-3 py-3 font-semibold text-slate-800">{stud?.name || place.studentId}</td>
-                          <td className="px-3 py-3 text-slate-700 font-medium">{place.company}</td>
-                          <td className="px-3 py-3 text-slate-500">{place.designation}</td>
-                          <td className="px-3 py-3 text-right font-bold text-emerald-600">{place.packageLpa} LPA</td>
-                          <td className="px-3 py-3 text-center font-mono text-slate-400 text-[10px]">{place.interviewDate}</td>
+                          <td className="px-3 py-3 font-semibold text-slate-800">{stud?.name || place.studentName || place.studentId}</td>
+                          <td className="px-3 py-3 text-slate-700 font-medium">{displayCompany}</td>
+                          <td className="px-3 py-3 text-slate-500">{displayDesignation}</td>
+                          <td className="px-3 py-3 text-right font-bold text-emerald-600">{displayPackage !== undefined ? `${displayPackage} LPA` : "N/A"}</td>
+                          <td className="px-3 py-3 text-center font-mono text-slate-400 text-[10px]">{displayDate}</td>
                           <td className="px-3 py-3 text-right">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
                               place.status === 'Placed' ? 'bg-emerald-50 text-emerald-700' :
